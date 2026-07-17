@@ -3,7 +3,7 @@ const ImageKit = require("imagekit");
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
 const PORT = process.env.PORT || 5500;
@@ -52,12 +52,48 @@ async function run() {
 
     const db = client.db("BlodLink");
     const usersCollection = db.collection("user");
+    const donationRequestsCollection = db.collection("donationRequests");
 
 
-    app.get('/user', async (req, res)=> {
-      const usersData = await usersCollection.find().toArray();
-      res.send(usersData)
-    })
+    app.post("/api/donor/donation-request", async (req, res) => {
+      try {
+        const data = req.body;
+
+        const result = await donationRequestsCollection.insertOne(data);
+
+        res.status(201).send(result);
+      } catch (error) {
+        res.status(500).send({
+          success: false,
+          message: "Failed to create donation request",
+          error: error.message,
+        });
+      }
+    });
+
+    app.get("/api/donor/donation-request/:id", async (req, res) => {
+      const { id } = req.params;
+
+      const result = await donationRequestsCollection.find({ donorId: id }).toArray();
+
+      res.send(result)
+
+    });
+
+    app.get("/api/donor/blood-request/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+
+        const result = await donationRequestsCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
 
 
   } finally {
