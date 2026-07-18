@@ -55,6 +55,7 @@ async function run() {
     const donationRequestsCollection = db.collection("donationRequests");
 
 
+    // Donor - post new request for blod
     app.post("/api/donor/donation-request", async (req, res) => {
       try {
         const data = req.body;
@@ -71,6 +72,35 @@ async function run() {
       }
     });
 
+    // Donor - accepted request
+    app.patch("/api/dashboard/donor/blood-request/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const data = req.body;
+
+        const updateDoc = {
+          $set: {
+            donatedBy: data.donatedBy,
+            donatedByPhone: data.donatedByPhone,
+            status: data.status,
+          },
+        };
+
+        const result = await donationRequestsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          updateDoc
+        );
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
+      }
+    });
+
+    // Donor - get all personal request for blod
     app.get("/api/donor/donation-request/:id", async (req, res) => {
       const { id } = req.params;
 
@@ -80,6 +110,7 @@ async function run() {
 
     });
 
+    // Donor - get blod request by id
     app.get("/api/donor/blood-request/:id", async (req, res) => {
       try {
         const { id } = req.params;
@@ -96,6 +127,58 @@ async function run() {
 
 
 
+    // Public get all rquest (Filter: Pending)
+    app.get("/api/donation-requests", async (req, res) => {
+      try {
+        const query = {
+          status: "Pending",
+        };
+
+        if (req.query.division) {
+          query.division = req.query.division;
+        }
+
+        if (req.query.district) {
+          query.district = req.query.district;
+        }
+
+
+        if (req.query.bloodGroup) {
+          query.bloodGroup = req.query.bloodGroup;
+        }
+
+        const page = parseInt(req.query.page) || 1;
+        const perPage = parseInt(req.query.perPage) || 6;
+
+        const skipItems = (page - 1) * perPage;
+
+        const total = await donationRequestsCollection.countDocuments(query);
+
+        const bloodRequest = await donationRequestsCollection
+          .find(query)
+          .skip(skipItems)
+          .limit(perPage)
+          .toArray();
+
+        res.send({
+          datas: bloodRequest,
+          total,
+          page,
+          perPage,
+          totalPage: Math.ceil(total / perPage),
+        });
+
+
+
+
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+
+
+
   } finally {
     // Keep the connection open while the server runs.
     // await client.close();
@@ -107,5 +190,5 @@ run().catch(console.dir);
 
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  // console.log(`Server is running on port ${PORT}`);
 });
