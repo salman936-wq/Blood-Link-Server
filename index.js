@@ -33,8 +33,6 @@ app.get("/imagekit/auth", (req, res) => {
 
 
 
-
-
 const uri = process.env.MONGO_DB_URI;
 
 const client = new MongoClient(uri, {
@@ -72,23 +70,54 @@ async function run() {
       }
     });
 
+
+    // Update blood request
+    app.put("/api/dashboard/donor/request/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const updatedData = req.body;
+        console.log(updatedData);
+
+        const result = await donationRequestsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: updatedData,
+          }
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+
     // Donor - accepted request
     app.patch("/api/dashboard/donor/blood-request/:id", async (req, res) => {
       try {
         const { id } = req.params;
         const data = req.body;
 
-        const updateDoc = {
-          $set: {
-            donatedBy: data.donatedBy,
-            donatedByPhone: data.donatedByPhone,
-            status: data.status,
-          },
-        };
+        const updateFields = {};
+
+        if (data.donatedBy !== undefined) {
+          updateFields.donatedBy = data.donatedBy;
+        }
+
+        if (data.donatedByPhone !== undefined) {
+          updateFields.donatedByPhone = data.donatedByPhone;
+        }
+
+        if (data.status !== undefined) {
+          updateFields.status = data.status;
+        }
 
         const result = await donationRequestsCollection.updateOne(
           { _id: new ObjectId(id) },
-          updateDoc
+          {
+            $set: updateFields,
+          }
         );
 
         res.send(result);
@@ -100,30 +129,53 @@ async function run() {
       }
     });
 
-    // Donor - get all personal request for blod
-    app.get("/api/donor/donation-request/:id", async (req, res) => {
+    // Status update for donetion Request 
+    app.patch("/api/dashboard/donor/status-request/:id", async (req, res) => {
       const { id } = req.params;
+      const { status } = req.body;
 
-      const result = await donationRequestsCollection.find({ donorId: id }).toArray();
+      const result = await donationRequestsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            status: status,
+          },
+        }
+      );
 
-      res.send(result)
-
+      res.send(result);
     });
 
-    // Donor - get blod request by id
-    app.get("/api/donor/blood-request/:id", async (req, res) => {
+
+
+    // Delete blod request
+    app.delete("/api/dashboard/donor/blood-request/:id", async (req, res) => {
       try {
         const { id } = req.params;
+        const result = donationRequestsCollection.deleteOne({ _id: new ObjectId(id) })
 
-        const result = await donationRequestsCollection.findOne({
-          _id: new ObjectId(id),
+        if (result.deletedCount === 0) {
+          return res.status(404).send({
+            success: false,
+            message: "Blood request not found",
+          });
+        }
+
+        res.send({
+          success: true,
+          message: "Blood request deleted successfully",
         });
 
-        res.send(result);
+
       } catch (error) {
-        res.status(500).send({ error: error.message });
+        res.status(500).send({
+          success: false,
+          message: error.message,
+        });
       }
-    });
+    })
+
+
 
 
 
@@ -175,6 +227,56 @@ async function run() {
         res.status(500).send({ error: error.message });
       }
     });
+
+
+
+
+
+    // Donor - get all personal request for blod
+    app.get("/api/donor/donation-request/:id", async (req, res) => {
+
+      const { id } = req.params;
+      const query = { donorId: id };
+
+
+      if (req.query.status) {
+        query.status = req.query.status;
+      }
+
+      const page = parseInt(req.query.page) || 1;
+      const perPage = parseInt(req.query.perPage) || 10;
+
+      const skipItems = (page - 1) * perPage;
+      const total = await donationRequestsCollection.countDocuments(query);
+      const result = await donationRequestsCollection.find(query).skip(skipItems).limit(perPage).toArray();
+
+      res.send({
+        datas: result,
+        total: total,
+        totalPage: Math.ceil(total / perPage),
+      });
+
+
+    });
+
+    // Donor - get blod request by id
+    app.get("/api/donor/blood-request/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+
+        const result = await donationRequestsCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+
+
+
 
 
 
