@@ -228,6 +228,45 @@ async function run() {
       }
     });
 
+    // Public get donner details
+    app.get("/api/all-donor", async (req, res) => {
+      try {
+        const query = {};
+
+        if (req.query.district) {
+          query.district = req.query.district;
+        }
+
+        if (req.query.bloodGroup) {
+          query.bloodGroup = req.query.bloodGroup;
+        }
+
+        const perPage = 12;
+        const page = parseInt(req.query.page) || 1;
+        const skip = (page - 1) * perPage;
+
+        const totalData = await usersCollection.countDocuments(query);
+
+        const donors = await usersCollection
+          .find(query)
+          .skip(skip)
+          .limit(perPage)
+          .toArray();
+
+        res.send({
+          data: donors,
+          totalData,
+          totalPage: Math.ceil(totalData / perPage),
+          perPage,
+          currentPage: page,
+        });
+      } catch (error) {
+        res.status(500).send({
+          message: "Internal Server Error",
+          error: error.message,
+        });
+      }
+    });
 
 
 
@@ -279,7 +318,7 @@ async function run() {
       try {
         const { id } = req.params;
         const data = req.body;
-        
+
 
         const updateDoc = {
           $set: {
