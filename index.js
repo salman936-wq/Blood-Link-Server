@@ -274,6 +274,35 @@ async function run() {
       }
     });
 
+    // User profile change with patch
+    app.patch("/api/profile/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const data = req.body;
+        
+
+        const updateDoc = {
+          $set: {
+            name: data.fullName,
+            email: data.email,
+            phone: data.phone,
+            bloodGroup: data.bloodGroup,
+            division: data.division,
+            district: data.district,
+          },
+        };
+
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          updateDoc
+        );
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
 
 
 
