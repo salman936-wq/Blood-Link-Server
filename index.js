@@ -332,80 +332,80 @@ async function run() {
       }
     });
 
-// Public get last 30 payments
-app.get("/api/public/payments", async (req, res) => {
-  try {
-    const result = await paymentsCollection
-      .aggregate([
-        // Latest payments first
-        {
-          $sort: {
-            createdAt: -1,
-          },
-        },
-
-        // Get last 30 payments
-        {
-          $limit: 30,
-        },
-
-        // Join user collection
-        {
-          $lookup: {
-            from: "user", // <-- আপনার user collection name
-            localField: "email",
-            foreignField: "email",
-            as: "user",
-          },
-        },
-
-        // Convert user array to object
-        {
-          $unwind: {
-            path: "$user",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-
-        // Return only required fields
-        {
-          $project: {
-            _id: 0,
-            amount: 1,
-            transactionId: "$paymentIntentId",
-            date: "$createdAt",
-
-            name: {
-              $ifNull: ["$user.name", "Guest"],
+    // Public get last 30 payments
+    app.get("/api/public/payments", async (req, res) => {
+      try {
+        const result = await paymentsCollection
+          .aggregate([
+            // Latest payments first
+            {
+              $sort: {
+                createdAt: -1,
+              },
             },
 
-            image: {
-              $ifNull: [
-                "$user.image",
-                "https://img.magnific.com/free-vector/user-circles-set_78370-4704.jpg",
-              ],
+            // Get last 30 payments
+            {
+              $limit: 30,
             },
-          },
-        },
-      ])
-      .toArray();
 
-    // Add Serial Number
-    const payments = result.map((item, index) => ({
-      serialNumber: index + 1,
-      ...item,
-    }));
+            // Join user collection
+            {
+              $lookup: {
+                from: "user", // <-- আপনার user collection name
+                localField: "email",
+                foreignField: "email",
+                as: "user",
+              },
+            },
 
-    res.status(200).send(payments);
-  } catch (error) {
-    console.error("Error fetching payments:", error);
-    res.status(500).send({
-      success: false,
-      message: "Failed to fetch payments",
-      error: error.message,
+            // Convert user array to object
+            {
+              $unwind: {
+                path: "$user",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+
+            // Return only required fields
+            {
+              $project: {
+                _id: 0,
+                amount: 1,
+                transactionId: "$paymentIntentId",
+                date: "$createdAt",
+
+                name: {
+                  $ifNull: ["$user.name", "Guest"],
+                },
+
+                image: {
+                  $ifNull: [
+                    "$user.image",
+                    "https://img.magnific.com/free-vector/user-circles-set_78370-4704.jpg",
+                  ],
+                },
+              },
+            },
+          ])
+          .toArray();
+
+        // Add Serial Number
+        const payments = result.map((item, index) => ({
+          serialNumber: index + 1,
+          ...item,
+        }));
+
+        res.status(200).send(payments);
+      } catch (error) {
+        console.error("Error fetching payments:", error);
+        res.status(500).send({
+          success: false,
+          message: "Failed to fetch payments",
+          error: error.message,
+        });
+      }
     });
-  }
-});
 
 
 
@@ -482,7 +482,16 @@ app.get("/api/public/payments", async (req, res) => {
     });
 
     // Donor personal funding history check
-
+    app.get("/api/donor/payments/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+        const data = await paymentsCollection.find({ email: email }).sort({ createdAt: -1 }).toArray();
+        res.send(data)
+      }
+      catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    })
 
 
 
