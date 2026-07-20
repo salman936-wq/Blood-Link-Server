@@ -4,9 +4,77 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const Stripe = require("stripe");
+
 
 const app = express();
 const PORT = process.env.PORT || 5500;
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+let paymentsCollection;
+
+app.use((req, res, next) => {
+  console.log(req.method, req.url);
+  next();
+});
+
+
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+
+
+    const sig = req.headers["stripe-signature"];
+
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+  console.log("======================");
+  console.log(err);
+  console.log("======================");
+
+  return res.status(400).send(err.message);
+}
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+
+      // Duplicate check
+      const exists = await paymentsCollection.findOne({
+        sessionId: session.id,
+      });
+
+      if (!exists) {
+        await paymentsCollection.insertOne({
+          sessionId: session.id,
+          paymentIntentId: session.payment_intent,
+
+          email: session.customer_email || session.metadata.email,
+
+          amount: session.amount_total / 100,
+
+          currency: session.currency,
+
+          status: session.payment_status,
+
+          createdAt: new Date(),
+        });
+
+        console.log("✅ Payment Saved");
+      } else {
+        console.log("⚠️ Payment Already Exists");
+      }
+    }
+
+    res.sendStatus(200);
+  }
+);
 
 // Middleware
 app.use(cors());
@@ -51,6 +119,7 @@ async function run() {
     const db = client.db("BlodLink");
     const usersCollection = db.collection("user");
     const donationRequestsCollection = db.collection("donationRequests");
+    paymentsCollection = db.collection("payments");
 
 
     // Donor - post new request for blod
@@ -360,5 +429,5 @@ run().catch(console.dir);
 
 
 app.listen(PORT, () => {
-  // console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
