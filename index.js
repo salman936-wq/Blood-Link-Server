@@ -12,11 +12,6 @@ const PORT = process.env.PORT || 5500;
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 let paymentsCollection;
 
-app.use((req, res, next) => {
-  console.log(req.method, req.url);
-  next();
-});
-
 
 app.post(
   "/api/stripe/webhook",
@@ -35,12 +30,12 @@ app.post(
         process.env.STRIPE_WEBHOOK_SECRET
       );
     } catch (err) {
-  console.log("======================");
-  console.log(err);
-  console.log("======================");
+      console.log("======================");
+      console.log(err);
+      console.log("======================");
 
-  return res.status(400).send(err.message);
-}
+      return res.status(400).send(err.message);
+    }
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
@@ -337,6 +332,81 @@ async function run() {
       }
     });
 
+// Public get last 30 payments
+app.get("/api/public/payments", async (req, res) => {
+  try {
+    const result = await paymentsCollection
+      .aggregate([
+        // Latest payments first
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+
+        // Get last 30 payments
+        {
+          $limit: 30,
+        },
+
+        // Join user collection
+        {
+          $lookup: {
+            from: "user", // <-- আপনার user collection name
+            localField: "email",
+            foreignField: "email",
+            as: "user",
+          },
+        },
+
+        // Convert user array to object
+        {
+          $unwind: {
+            path: "$user",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        // Return only required fields
+        {
+          $project: {
+            _id: 0,
+            amount: 1,
+            transactionId: "$paymentIntentId",
+            date: "$createdAt",
+
+            name: {
+              $ifNull: ["$user.name", "Guest"],
+            },
+
+            image: {
+              $ifNull: [
+                "$user.image",
+                "https://img.magnific.com/free-vector/user-circles-set_78370-4704.jpg",
+              ],
+            },
+          },
+        },
+      ])
+      .toArray();
+
+    // Add Serial Number
+    const payments = result.map((item, index) => ({
+      serialNumber: index + 1,
+      ...item,
+    }));
+
+    res.status(200).send(payments);
+  } catch (error) {
+    console.error("Error fetching payments:", error);
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch payments",
+      error: error.message,
+    });
+  }
+});
+
 
 
 
@@ -410,6 +480,9 @@ async function run() {
         res.status(500).send({ message: error.message });
       }
     });
+
+    // Donor personal funding history check
+
 
 
 
