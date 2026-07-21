@@ -117,6 +117,34 @@ async function run() {
     paymentsCollection = db.collection("payments");
 
 
+    // Admin and Volentare - get all request for blod
+    app.get("/api/admin/donation-request", async (req, res) => {
+
+      const query = {};
+
+
+      if (req.query.status) {
+        query.status = req.query.status;
+      }
+
+      const page = parseInt(req.query.page) || 1;
+      const perPage = parseInt(req.query.perPage) || 10;
+
+      const skipItems = (page - 1) * perPage;
+      const total = await donationRequestsCollection.countDocuments(query);
+      const result = await donationRequestsCollection.find(query).skip(skipItems).limit(perPage).toArray();
+
+      res.send({
+        datas: result,
+        total: total,
+        totalPage: Math.ceil(total / perPage),
+      });
+
+
+    });
+
+
+
     // Donor - post new request for blod
     app.post("/api/donor/donation-request", async (req, res) => {
       try {
