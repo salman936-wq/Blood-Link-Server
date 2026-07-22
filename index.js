@@ -143,6 +143,33 @@ async function run() {
 
     });
 
+    
+    // Admin - get all user for handle
+    app.get("/api/admin/user-request", async (req, res) => {
+
+      const query = {};
+
+
+      if (req.query.userType) {
+        query.role = req.query.userType;
+      }
+
+      const page = parseInt(req.query.page) || 1;
+      const perPage = parseInt(req.query.perPage) || 10;
+
+      const skipItems = (page - 1) * perPage;
+      const total = await usersCollection.countDocuments(query);
+      const result = await usersCollection.find(query).skip(skipItems).limit(perPage).toArray();
+
+      res.send({
+        datas: result,
+        total: total,
+        totalPage: Math.ceil(total / perPage),
+      });
+
+
+    });
+
 
 
     // Donor - post new request for blod
@@ -171,6 +198,29 @@ async function run() {
         console.log(updatedData);
 
         const result = await donationRequestsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: updatedData,
+          }
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+
+    app.put("/api/dashboard/admin/user/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        console.log(id);
+        
+        const updatedData = req.body;
+        console.log(updatedData);
+
+        const result = await usersCollection.updateOne(
           { _id: new ObjectId(id) },
           {
             $set: updatedData,
