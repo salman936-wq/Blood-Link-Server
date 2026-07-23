@@ -93,9 +93,6 @@ app.get("/imagekit/auth", (req, res) => {
 });
 
 
-
-
-
 const uri = process.env.MONGO_DB_URI;
 
 const client = new MongoClient(uri, {
@@ -132,13 +129,13 @@ async function run() {
         return res.status(401).send({ message: "Unauthorized access" })
       }
 
-      const query = {token: token};
+      const query = { token: token };
 
       const session = await sessionCollection.findOne(query)
-      
+
       const userId = session.userId;
-   
-      
+
+
       const userQuery = {
         _id: userId
       }
@@ -146,54 +143,52 @@ async function run() {
       const user = await usersCollection.findOne(userQuery);
 
       req.user = user;
-    
+
       next()
     }
 
     const verifyAdmin = async (req, res, next) => {
-      if(req.user?.role !== 'admin'){
-        return res.status(403).send({message: 'Forbidden accsess'})
+      if (req.user?.role !== 'admin') {
+        return res.status(403).send({ message: 'Forbidden accsess' })
       }
       next();
     }
 
     const verifyAdminOrVolentare = async (req, res, next) => {
-        if(req.user?.role !== 'admin' && req.user?.role !== 'volunteer'){
-        return res.status(403).send({message: 'Forbidden accsess'})
+      if (req.user?.role !== 'admin' && req.user?.role !== 'volunteer') {
+        return res.status(403).send({ message: 'Forbidden accsess' })
       }
       next();
     }
 
     const verifyAdminOrVolentareOrDonor = async (req, res, next) => {
-        if(req.user?.role !== 'admin' && req.user?.role !== 'volunteer' && req.user?.role !== 'donor'){
-        return res.status(403).send({message: 'Forbidden accsess'})
+      if (req.user?.role !== 'admin' && req.user?.role !== 'volunteer' && req.user?.role !== 'donor') {
+        return res.status(403).send({ message: 'Forbidden accsess' })
       }
       next();
     }
 
-const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
-  req,
-  res,
-  next
-) => {
-  const { role, id } = req.user;
+    const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
+      req,
+      res,
+      next
+    ) => {
+      const { role, id } = req.user;
 
-  // Admin & Volunteer can update anyone
-  if (role === "admin" || role === "volunteer") {
-    return next();
-  }
+      // Admin & Volunteer can update anyone
+      if (role === "admin" || role === "volunteer") {
+        return next();
+      }
 
-  // Donor can update only own profile
-  if (role === "donor" && id === req.params.id) {
-    return next();
-  }
+      // Donor can update only own profile
+      if (role === "donor" && id === req.params.id) {
+        return next();
+      }
 
-  return res.status(403).send({
-    message: "Forbidden access",
-  });
-};
-
-
+      return res.status(403).send({
+        message: "Forbidden access",
+      });
+    };
 
 
 
@@ -225,7 +220,7 @@ const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
 
 
     // Admin - get all user for handle
-    app.get("/api/admin/user-request", verifyToken, verifyAdmin,  async (req, res) => {
+    app.get("/api/admin/user-request", verifyToken, verifyAdmin, async (req, res) => {
 
       const query = {};
 
@@ -273,6 +268,7 @@ const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
 
 
 
+
     // Donor - post new request for blod
     app.post("/api/donor/donation-request", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
@@ -289,7 +285,6 @@ const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
         });
       }
     });
-
 
     // Update blood request
     app.put("/api/dashboard/donor/request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
@@ -310,10 +305,6 @@ const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
         res.status(500).send({ error: error.message });
       }
     });
-
-
-
-
 
     // Donor - accepted request
     app.patch("/api/dashboard/donor/blood-request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
@@ -368,8 +359,6 @@ const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
       res.send(result);
     });
 
-
-
     // Delete blod request
     app.delete("/api/dashboard/donor/blood-request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
@@ -395,8 +384,36 @@ const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
           message: error.message,
         });
       }
-    })
+    });
 
+    // User profile change with patch
+    app.patch("/api/profile/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const data = req.body;
+
+
+        const updateDoc = {
+          $set: {
+            name: data.fullName,
+            email: data.email,
+            phone: data.phone,
+            bloodGroup: data.bloodGroup,
+            division: data.division,
+            district: data.district,
+          },
+        };
+
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          updateDoc
+        );
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
 
 
 
@@ -568,6 +585,8 @@ const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
 
 
 
+
+
     // Donor - get all personal request for blod
     app.get("/api/donor/donation-request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
 
@@ -595,7 +614,7 @@ const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
 
     });
 
-    // -- TODO
+
     // Donor - get blod request by id
     app.get("/api/donor/blood-request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
@@ -611,34 +630,6 @@ const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
       }
     });
 
-    // User profile change with patch
-    app.patch("/api/profile/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
-      try {
-        const { id } = req.params;
-        const data = req.body;
-
-
-        const updateDoc = {
-          $set: {
-            name: data.fullName,
-            email: data.email,
-            phone: data.phone,
-            bloodGroup: data.bloodGroup,
-            division: data.division,
-            district: data.district,
-          },
-        };
-
-        const result = await usersCollection.updateOne(
-          { _id: new ObjectId(id) },
-          updateDoc
-        );
-
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: error.message });
-      }
-    });
 
     // Donor personal funding history check
     app.get("/api/donor/payments/:email", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
