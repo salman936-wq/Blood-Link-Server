@@ -595,6 +595,7 @@ const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
 
     });
 
+    // -- TODO
     // Donor - get blod request by id
     app.get("/api/donor/blood-request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
