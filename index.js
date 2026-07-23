@@ -164,12 +164,35 @@ async function run() {
       next();
     }
 
-    const logtest = async (req, res, next) => {
-      const authHeader = req.headers?.authorization;
-      console.log(authHeader);
-      
-      next()
+    const verifyAdminOrVolentareOrDonor = async (req, res, next) => {
+        if(req.user?.role !== 'admin' && req.user?.role !== 'volunteer' && req.user?.role !== 'donor'){
+        return res.status(403).send({message: 'Forbidden accsess'})
+      }
+      next();
     }
+
+const verifyAreYouPersonChangingAnyThingOrYouAreAdminOrVolunteer = async (
+  req,
+  res,
+  next
+) => {
+  const { role, id } = req.user;
+
+  // Admin & Volunteer can update anyone
+  if (role === "admin" || role === "volunteer") {
+    return next();
+  }
+
+  // Donor can update only own profile
+  if (role === "donor" && id === req.params.id) {
+    return next();
+  }
+
+  return res.status(403).send({
+    message: "Forbidden access",
+  });
+};
+
 
 
 
@@ -202,7 +225,7 @@ async function run() {
 
 
     // Admin - get all user for handle
-    app.get("/api/admin/user-request", logtest,  async (req, res) => {
+    app.get("/api/admin/user-request", verifyToken, verifyAdmin,  async (req, res) => {
 
       const query = {};
 
@@ -251,7 +274,7 @@ async function run() {
 
 
     // Donor - post new request for blod
-    app.post("/api/donor/donation-request", async (req, res) => {
+    app.post("/api/donor/donation-request", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
         const data = req.body;
 
@@ -269,7 +292,7 @@ async function run() {
 
 
     // Update blood request
-    app.put("/api/dashboard/donor/request/:id", async (req, res) => {
+    app.put("/api/dashboard/donor/request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
         const { id } = req.params;
         const updatedData = req.body;
@@ -293,7 +316,7 @@ async function run() {
 
 
     // Donor - accepted request
-    app.patch("/api/dashboard/donor/blood-request/:id", async (req, res) => {
+    app.patch("/api/dashboard/donor/blood-request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
         const { id } = req.params;
         const data = req.body;
@@ -329,7 +352,7 @@ async function run() {
     });
 
     // Status update for donetion Request 
-    app.patch("/api/dashboard/donor/status-request/:id", async (req, res) => {
+    app.patch("/api/dashboard/donor/status-request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       const { id } = req.params;
       const { status } = req.body;
 
@@ -348,7 +371,7 @@ async function run() {
 
 
     // Delete blod request
-    app.delete("/api/dashboard/donor/blood-request/:id", async (req, res) => {
+    app.delete("/api/dashboard/donor/blood-request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
         const { id } = req.params;
         const result = donationRequestsCollection.deleteOne({ _id: new ObjectId(id) })
@@ -546,7 +569,7 @@ async function run() {
 
 
     // Donor - get all personal request for blod
-    app.get("/api/donor/donation-request/:id", async (req, res) => {
+    app.get("/api/donor/donation-request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
 
       const { id } = req.params;
       const query = { donorId: id };
@@ -573,7 +596,7 @@ async function run() {
     });
 
     // Donor - get blod request by id
-    app.get("/api/donor/blood-request/:id", async (req, res) => {
+    app.get("/api/donor/blood-request/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
         const { id } = req.params;
 
@@ -588,7 +611,7 @@ async function run() {
     });
 
     // User profile change with patch
-    app.patch("/api/profile/:id", async (req, res) => {
+    app.patch("/api/profile/:id", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
         const { id } = req.params;
         const data = req.body;
@@ -617,7 +640,7 @@ async function run() {
     });
 
     // Donor personal funding history check
-    app.get("/api/donor/payments/:email", async (req, res) => {
+    app.get("/api/donor/payments/:email", verifyToken, verifyAdminOrVolentareOrDonor, async (req, res) => {
       try {
         const { email } = req.params;
         const data = await paymentsCollection.find({ email: email }).sort({ createdAt: -1 }).toArray();
