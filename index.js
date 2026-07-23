@@ -1,3 +1,4 @@
+// todo - delete user from admin panel
 require('dotenv').config();
 const ImageKit = require("imagekit");
 const express = require('express');
@@ -30,9 +31,6 @@ app.post(
         process.env.STRIPE_WEBHOOK_SECRET
       );
     } catch (err) {
-      console.log("======================");
-      console.log(err);
-      console.log("======================");
 
       return res.status(400).send(err.message);
     }
@@ -61,9 +59,9 @@ app.post(
           createdAt: new Date(),
         });
 
-        console.log("✅ Payment Saved");
+
       } else {
-        console.log("⚠️ Payment Already Exists");
+
       }
     }
 
@@ -96,6 +94,8 @@ app.get("/imagekit/auth", (req, res) => {
 
 
 
+
+
 const uri = process.env.MONGO_DB_URI;
 
 const client = new MongoClient(uri, {
@@ -106,6 +106,8 @@ const client = new MongoClient(uri, {
   },
 });
 
+
+
 async function run() {
   try {
     // Connect the client to the server
@@ -114,11 +116,66 @@ async function run() {
     const db = client.db("BlodLink");
     const usersCollection = db.collection("user");
     const donationRequestsCollection = db.collection("donationRequests");
+    const sessionCollection = db.collection("session");
     paymentsCollection = db.collection("payments");
 
 
+    const verifyToken = async (req, res, next) => {
+      const authHeader = req.headers?.authorization;
+      if (!authHeader) {
+        return res.status(401).send({ message: "Unauthorized access" })
+      }
+
+      const token = authHeader.split(' ')[1];
+
+      if (!token) {
+        return res.status(401).send({ message: "Unauthorized access" })
+      }
+
+      const query = {token: token};
+
+      const session = await sessionCollection.findOne(query)
+      
+      const userId = session.userId;
+   
+      
+      const userQuery = {
+        _id: userId
+      }
+
+      const user = await usersCollection.findOne(userQuery);
+
+      req.user = user;
+    
+      next()
+    }
+
+    const verifyAdmin = async (req, res, next) => {
+      if(req.user?.role !== 'admin'){
+        return res.status(403).send({message: 'Forbidden accsess'})
+      }
+      next();
+    }
+
+    const verifyAdminOrVolentare = async (req, res, next) => {
+        if(req.user?.role !== 'admin' && req.user?.role !== 'volunteer'){
+        return res.status(403).send({message: 'Forbidden accsess'})
+      }
+      next();
+    }
+
+    const logtest = async (req, res, next) => {
+      const authHeader = req.headers?.authorization;
+      console.log(authHeader);
+      
+      next()
+    }
+
+
+
+
     // Admin and Volentare - get all request for blod
-    app.get("/api/admin/donation-request", async (req, res) => {
+    app.get("/api/admin/donation-request", verifyToken, verifyAdminOrVolentare, async (req, res) => {
 
       const query = {};
 
@@ -143,9 +200,9 @@ async function run() {
 
     });
 
-    
+
     // Admin - get all user for handle
-    app.get("/api/admin/user-request", async (req, res) => {
+    app.get("/api/admin/user-request", logtest,  async (req, res) => {
 
       const query = {};
 
@@ -168,6 +225,27 @@ async function run() {
       });
 
 
+    });
+
+    // Admin controll users
+    app.put("/api/dashboard/admin/user/:id", verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const { id } = req.params;
+
+        const updatedData = req.body;
+
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: updatedData,
+          }
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: error.message });
+      }
     });
 
 
@@ -195,7 +273,6 @@ async function run() {
       try {
         const { id } = req.params;
         const updatedData = req.body;
-        console.log(updatedData);
 
         const result = await donationRequestsCollection.updateOne(
           { _id: new ObjectId(id) },
@@ -212,27 +289,7 @@ async function run() {
     });
 
 
-    app.put("/api/dashboard/admin/user/:id", async (req, res) => {
-      try {
-        const { id } = req.params;
-        console.log(id);
-        
-        const updatedData = req.body;
-        console.log(updatedData);
 
-        const result = await usersCollection.updateOne(
-          { _id: new ObjectId(id) },
-          {
-            $set: updatedData,
-          }
-        );
-
-        res.send(result);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send({ error: error.message });
-      }
-    });
 
 
     // Donor - accepted request
